@@ -1,8 +1,8 @@
-<title>Python Gate Probe</title>
+<title>Python in a Claude Artifact</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: one narrow bench column. The gate is the only boxed panel; checks read as a boot log; the runner is an editor over an output well. */
+/* Layout: one narrow bench column. The editor sits over an output well; startup reads as a boot log underneath. */
 :root {
   --bg: #f2f4f7;
   --surface: #ffffff;
@@ -15,9 +15,6 @@
   --pass: #1c7a40;
   --fail: #b3271f;
   --wait: #7d5a00;
-  --pass-bg: #dff1e5;
-  --fail-bg: #f8e1df;
-  --wait-bg: #f4ead0;
   --sans: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
@@ -26,7 +23,6 @@
     --bg: #10151b; --surface: #171e26; --well: #0b0f14; --ink: #e5eaf0; --muted: #94a1b0; --line: #2a3541;
     --accent: #56c5bc; --accent-ink: #06211f;
     --pass: #63c886; --fail: #f08077; --wait: #e2b653;
-    --pass-bg: #163322; --fail-bg: #3b1a17; --wait-bg: #382c0e;
     color-scheme: dark;
   }
 }
@@ -34,7 +30,6 @@
   --bg: #10151b; --surface: #171e26; --well: #0b0f14; --ink: #e5eaf0; --muted: #94a1b0; --line: #2a3541;
   --accent: #56c5bc; --accent-ink: #06211f;
   --pass: #63c886; --fail: #f08077; --wait: #e2b653;
-  --pass-bg: #163322; --fail-bg: #3b1a17; --wait-bg: #382c0e;
   color-scheme: dark;
 }
 body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.5; }
@@ -53,21 +48,18 @@ section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .sec-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .note { color: var(--muted); font-size: 14px; max-width: 65ch; }
 
-.gate { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 18px 20px; }
-.pill { font-family: var(--mono); font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 999px; background: var(--wait-bg); color: var(--wait); white-space: nowrap; }
-.gate[data-tone="pass"] .pill { background: var(--pass-bg); color: var(--pass); }
-.gate[data-tone="fail"] .pill { background: var(--fail-bg); color: var(--fail); }
-#gateText { max-width: 65ch; }
-.hosts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 8px; }
-.hosts li { font-family: var(--mono); font-size: 13px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 4px; overflow-wrap: anywhere; }
-.hosts li[data-stale="true"] { color: var(--wait); border-color: var(--wait); }
-
 button { font: inherit; font-weight: 500; border-radius: 5px; padding: 7px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.gate button { align-self: flex-start; }
-.gated { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 14px; border-top: 1px solid var(--line); }
+
+.wait { font-family: var(--mono); font-size: 12px; color: var(--wait); }
+textarea { font-family: var(--mono); font-size: 13.5px; line-height: 1.55; width: 100%; box-sizing: border-box; min-height: 190px; resize: vertical; padding: 12px 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); tab-size: 4; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.meta { font-family: var(--mono); font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.out, .report { font-family: var(--mono); font-size: 13px; line-height: 1.55; margin: 0; padding: 12px 14px; background: var(--well); border-radius: 6px; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; min-height: 64px; max-height: 340px; overflow: auto; }
+.out[data-state="idle"] { color: var(--muted); }
+.out[data-state="err"] { color: var(--fail); }
 
 .steps { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
 .step { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 4px 14px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--line); }
@@ -80,15 +72,6 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent);
 .step-detail { font-family: var(--mono); font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
 .step[data-state="fail"] .step-detail { color: var(--fail); }
 .step-ms { font-family: var(--mono); font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-
-.lock { font-family: var(--mono); font-size: 12px; color: var(--wait); }
-textarea { font-family: var(--mono); font-size: 13.5px; line-height: 1.55; width: 100%; box-sizing: border-box; min-height: 172px; resize: vertical; padding: 12px 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); tab-size: 4; }
-textarea:disabled { opacity: 0.6; }
-.row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.meta { font-family: var(--mono); font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.out, .report { font-family: var(--mono); font-size: 13px; line-height: 1.55; margin: 0; padding: 12px 14px; background: var(--well); border-radius: 6px; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; min-height: 64px; max-height: 340px; overflow: auto; }
-.out[data-state="idle"] { color: var(--muted); }
-.out[data-state="err"] { color: var(--fail); }
 @media (max-width: 480px) {
   .step { grid-template-columns: 62px minmax(0, 1fr); }
   .step-ms { grid-column: 2; }
@@ -97,38 +80,14 @@ textarea:disabled { opacity: 0.6; }
 
 <div class="page">
   <header>
-    <h1>Python Gate Probe</h1>
-    <p class="lede">Two tests on one page. Can a local Switchboard server decide whether a button on this page works? And does a Python interpreter, published alongside the page as WebAssembly, run inside the artifact frame?</p>
+    <h1>Python in a Claude Artifact</h1>
+    <p class="lede">CPython 3.12 running inside this page. The interpreter is Pyodide 0.26.4, published alongside the page as WebAssembly and run in a worker, so your code executes in your browser and goes nowhere else.</p>
   </header>
-
-  <section class="gate" id="gate" data-tone="wait" aria-live="polite">
-    <div class="sec-head">
-      <h2>Switchboard gate</h2>
-      <span class="pill" id="gatePill">Checking</span>
-    </div>
-    <p id="gateText">Looking for the Switchboard server.</p>
-    <ul class="hosts" id="gateHosts" hidden></ul>
-    <button id="gateBtn" type="button" hidden>Check Switchboard</button>
-    <div class="gated">
-      <button id="gatedBtn" type="button" class="primary" disabled>Gated button</button>
-      <span class="meta" id="gatedNote">Disabled until Switchboard answers.</span>
-    </div>
-  </section>
-
-  <section>
-    <div class="sec-head">
-      <h2>Runtime checks</h2>
-      <button id="copyBtn" type="button">Copy report</button>
-    </div>
-    <p class="note">These run on load for every viewer. Python does not depend on the gate.</p>
-    <ol class="steps" id="steps"></ol>
-    <pre class="report" id="reportText" hidden></pre>
-  </section>
 
   <section>
     <div class="sec-head">
       <h2>Run Python</h2>
-      <span class="lock" id="lockNote">Waiting for the interpreter</span>
+      <span class="wait" id="waitNote">Waiting for the interpreter</span>
     </div>
     <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Python script">import sys, platform, statistics
 
@@ -143,14 +102,23 @@ sum(i * i for i in range(10))</textarea>
       <button id="stopBtn" type="button" hidden>Stop</button>
       <span class="meta" id="runMeta"></span>
     </div>
-    <pre class="out" id="out" data-state="idle">Output appears here.</pre>
+    <pre class="out" id="out" data-state="idle">Output appears here. The standard library is available; packages such as numpy are not included.</pre>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Startup</h2>
+      <button id="copyBtn" type="button">Copy report</button>
+    </div>
+    <p class="note">Each step the page takes to get an interpreter running, with how long it took. Startup takes several seconds.</p>
+    <ol class="steps" id="steps"></ol>
+    <pre class="report" id="reportText" hidden></pre>
   </section>
 </div>
 
 <script>
 (function () {
   "use strict";
-  var SERVER = "host:switchboard";
   var BOOT_LIMIT_MS = 90000;
   var $ = function (id) { return document.getElementById(id); };
 
@@ -165,12 +133,10 @@ sum(i * i for i in range(10))</textarea>
   var WORD = { waiting: "queued", running: "running", pass: "pass", fail: "fail", skipped: "skipped" };
 
   var steps = {};
-  var gate = { state: "checking", detail: "", hosts: null };
   var runtime = { state: "booting", version: "" };
   var worker = null, running = null, runSeq = 0, bootTimer = null;
-  var mcp = null, perms = null, db = null;
 
-  /* ---------- runtime checks ---------- */
+  /* ---------- startup ---------- */
   function renderSteps() {
     var ol = $("steps");
     ol.textContent = "";
@@ -209,7 +175,6 @@ sum(i * i for i in range(10))</textarea>
     runtime.version = version || "";
     clearTimeout(bootTimer);
     updateRunner();
-    saveReport();
   }
 
   function failRunning(message) {
@@ -278,25 +243,12 @@ sum(i * i for i in range(10))</textarea>
   function canRun() { return runtime.state === "ready" && running === null; }
 
   function updateRunner() {
-    var note = $("lockNote");
+    var note = $("waitNote");
     if (runtime.state === "booting") note.textContent = "Waiting for the interpreter";
     else if (runtime.state === "failed") note.textContent = "The interpreter did not start";
     note.hidden = runtime.state === "ready";
     $("runBtn").disabled = !canRun();
     $("stopBtn").hidden = running === null;
-  }
-
-  /* The gate controls only this button, which does nothing beyond counting its clicks. */
-  var gatedClicks = 0;
-  function updateGated() {
-    var open = gate.state === "open";
-    $("gatedBtn").disabled = !open;
-    $("gatedNote").textContent = open ? "Enabled because Switchboard answered. It does nothing else." : "Disabled until Switchboard answers.";
-  }
-  function onGatedClick() {
-    if (gate.state !== "open") return;
-    gatedClicks += 1;
-    $("gatedNote").textContent = "Clicked " + gatedClicks + (gatedClicks === 1 ? " time" : " times") + ". It does nothing else.";
   }
 
   function appendOut(text) {
@@ -341,95 +293,6 @@ sum(i * i for i in range(10))</textarea>
     startRuntime();
   }
 
-  /* ---------- Switchboard gate ---------- */
-  var GATE_COPY = {
-    checking: { pill: "Checking", tone: "wait", text: "Looking for the Switchboard server.", btn: "" },
-    ask: { pill: "Needs your OK", tone: "wait", text: "Switchboard is declared for this page but has not been asked for yet. Checking it lists your paired hosts and changes nothing.", btn: "Check Switchboard" },
-    open: { pill: "Open", tone: "pass", text: "", btn: "" },
-    absent: { pill: "Locked", tone: "fail", text: "Switchboard is not reachable from this view. It is a local server, so it answers only when you open this page in the Claude desktop app with Switchboard running.", btn: "Check again" },
-    denied: { pill: "Locked", tone: "fail", text: "Switchboard is turned off for this page. Turn it back on in this artifact's Permissions menu.", btn: "Open permissions" },
-    nomcp: { pill: "Locked", tone: "fail", text: "This view cannot reach connectors at all, so the gate stays closed.", btn: "" },
-    error: { pill: "Could not check", tone: "wait", text: "Switchboard did not give a clear answer.", btn: "Try again" }
-  };
-
-  function setGate(state, detail, hosts) {
-    gate.state = state;
-    gate.detail = detail || "";
-    gate.hosts = hosts || null;
-    var c = GATE_COPY[state];
-    $("gate").dataset.tone = c.tone;
-    $("gatePill").textContent = c.pill;
-    var text = c.text;
-    if (state === "open") {
-      var n = gate.hosts ? gate.hosts.length : 0;
-      text = "Switchboard answered with " + n + " paired " + (n === 1 ? "host" : "hosts") + ". The gated button is enabled.";
-    } else if (state === "error" && gate.detail) {
-      text = c.text + " (" + gate.detail + ")";
-    }
-    $("gateText").textContent = text;
-    var ul = $("gateHosts");
-    ul.textContent = "";
-    (gate.hosts || []).forEach(function (h) {
-      var li = document.createElement("li");
-      li.textContent = h.name + (h.stale ? " (needs pairing)" : "");
-      li.dataset.stale = String(h.stale);
-      ul.appendChild(li);
-    });
-    ul.hidden = !(gate.hosts && gate.hosts.length);
-    var btn = $("gateBtn");
-    btn.textContent = c.btn;
-    btn.hidden = !c.btn;
-    btn.disabled = false;
-    updateGated();
-    saveReport();
-  }
-
-  function gateFromError(e) {
-    var code = (e && e.code) || "upstream_error";
-    if (code === "server_not_connected" || code === "server_not_found") return setGate("absent", code);
-    if (code === "not_in_manifest" || code === "consent_required" || code === "approval_required") return setGate("denied", code);
-    if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") return setGate("nomcp", code);
-    if (code === "cancelled") return setGate("ask", code);
-    setGate("error", code);
-  }
-
-  function probeSwitchboard() {
-    if (!mcp) return setGate("nomcp");
-    $("gateBtn").disabled = true;
-    $("gatePill").textContent = "Checking";
-    mcp.callTool(SERVER, "hosts", {}).then(function (result) {
-      var payload = result && result.payload;
-      var list = payload && Array.isArray(payload.hosts) ? payload.hosts : null;
-      if (!list) return setGate("error", "unexpected answer");
-      setGate("open", "", list.map(function (h) {
-        return { name: String((h && h.name) || "unnamed"), stale: !!(h && h.needs_pairing) };
-      }));
-    }, gateFromError);
-  }
-
-  function initGate() {
-    if (!mcp) return setGate("nomcp");
-    var read = perms ? perms.state("mcp:" + SERVER).catch(function () { return "unavailable"; }) : Promise.resolve("prompt");
-    read.then(function (state) {
-      if (state === "unavailable") return setGate("absent", "permission state unavailable");
-      if (state === "denied") return setGate("denied", "permission denied");
-      if (state === "granted") return probeSwitchboard();
-      return mcp.listTools(SERVER).then(function (res) {
-        var listed = res && Array.isArray(res.servers) && res.servers.length > 0;
-        setGate(listed ? "ask" : "absent", listed ? "" : "not listed");
-      }, function () { setGate("ask"); });
-    });
-  }
-
-  function onGateButton() {
-    if (gate.state === "denied" && perms) {
-      $("gateBtn").disabled = true;
-      perms.manage().then(initGate, function () { $("gateBtn").disabled = false; });
-      return;
-    }
-    probeSwitchboard();
-  }
-
   /* ---------- report ---------- */
   function buildReport() {
     var s = {};
@@ -439,22 +302,8 @@ sum(i * i for i in range(10))</textarea>
       runtime: runtime.state,
       python: runtime.version,
       steps: s,
-      gate: gate.state,
-      gateDetail: gate.detail,
-      hostCount: gate.hosts ? gate.hosts.length : null,
       userAgent: navigator.userAgent
     };
-  }
-
-  var lastSaved = "", saveChain = Promise.resolve();
-  function saveReport() {
-    if (!db || runtime.state === "booting" || gate.state === "checking") return;
-    var report = buildReport();
-    var key = JSON.stringify(report);
-    if (key === lastSaved) return;
-    lastSaved = key;
-    report.at = Date.now();
-    saveChain = saveChain.then(function () { return db.doc("probes/latest").set(report); }).catch(function () {});
   }
 
   function copyReport() {
@@ -482,23 +331,11 @@ sum(i * i for i in range(10))</textarea>
   /* ---------- start ---------- */
   $("runBtn").addEventListener("click", runCode);
   $("stopBtn").addEventListener("click", stopRun);
-  $("gateBtn").addEventListener("click", onGateButton);
-  $("gatedBtn").addEventListener("click", onGatedClick);
   $("copyBtn").addEventListener("click", copyReport);
   $("code").addEventListener("keydown", function (e) {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); runCode(); }
   });
 
   startRuntime();
-
-  var use = function (name) {
-    if (!window.claude || typeof window.claude.use !== "function") return Promise.resolve(null);
-    return window.claude.use(name).catch(function () { return null; });
-  };
-  Promise.all([use("mcp"), use("permissions")]).then(function (r) {
-    mcp = r[0]; perms = r[1];
-    initGate();
-  });
-  use("db").then(function (d) { db = d; saveReport(); });
 })();
 </script>

@@ -1,24 +1,20 @@
-# Python Gate Probe
+# Python in a Claude Artifact
 
-A small test page for Claude Artifacts. It answers two questions:
+A demo of a real Python interpreter running inside a Claude Artifact. The page boots Pyodide (CPython compiled to WebAssembly) in a Web Worker, from files published alongside the page, and gives you an editor to run scripts. Code executes in the viewer's browser.
 
-1. Can a page gate a feature on whether the viewer has a particular MCP server (here a local server named Switchboard)? The gated feature is a demo button that does nothing except count its clicks.
-2. Does a self-hosted Python interpreter (Pyodide, compiled to WebAssembly) run inside the artifact frame?
-
-## What it found (2026-11-17)
+## What it shows (first tested 2026-11-17)
 
 - WebAssembly compilation is allowed in the artifact frame.
 - A Web Worker starts from a file published beside the page.
-- Pyodide 0.26.4 boots Python 3.12.1 in the worker and runs scripts. Boot takes about 8 seconds.
+- Pyodide 0.26.4 boots Python 3.12.1 in the worker and runs scripts. Startup takes about 8 seconds.
 - Artifacts do not serve `.zip` files, and Pyodide boots from a zipped standard library. The library is therefore published as source text in `py/stdlib.json`, and the worker rebuilds an uncompressed zip in memory before starting the interpreter.
-- The gate locks when Switchboard is not reachable, both in a browser tab and in the Claude desktop app without the server connected. The unlocked path has not been confirmed yet.
-- Python runs for every viewer and does not depend on the gate.
+- Artifacts block runtime fetches to other hosts, so everything is self-hosted and `micropip` cannot install from PyPI. Only the standard library is available; packages such as numpy are not included.
 
 ## Files
 
 | File | Size | What it is |
 |---|---|---|
-| `index.html` | 21 KB | The page: gate, runtime checks, editor |
+| `index.html` | 14 KB | The page: editor, output, startup log |
 | `py/worker.js` | 6 KB | Worker that packs the standard library, boots Python and runs scripts |
 | `py/pyodide.js` | 15 KB | Pyodide loader (unmodified) |
 | `py/pyodide.asm.js` | 1.2 MB | Pyodide JavaScript glue (unmodified) |
@@ -37,28 +33,17 @@ The file contents are unchanged; only the container differs.
 
 ## Running it
 
-**As an artifact.** Publish `index.html` with the `py/` folder as supporting files, declaring these capabilities:
+**As an artifact.** Publish `index.html` with the `py/` folder as supporting files. No runtime capabilities are needed.
 
-```json
-{
-  "mcp": { "servers": [{ "server": "host:switchboard", "tools": ["hosts"] }] },
-  "db": {},
-  "user": {}
-}
-```
-
-The page writes its results to the artifact database at `probes/latest`. To gate on a different server, change `SERVER` and the tool call in `index.html`.
-
-**Outside an artifact.** Three things differ:
+**Outside an artifact.** Two things differ:
 
 - `index.html` is a fragment. Artifacts wrap it in an `<html>`, `<head>` and `<body>` skeleton at publish time, so add one.
-- There is no connector access, so the gate stays locked and the gated button stays disabled. Python still runs.
 - It needs a web server. Opened from disk, the browser blocks the worker and the file fetches.
 
 Outside an artifact you can also skip `py/stdlib.json` entirely: use Pyodide's original `python_stdlib.zip` and drop the packing code from `py/worker.js`.
 
 ## License
 
-The probe's own files (`index.html`, `py/worker.js`, `tools/unpack_stdlib.py` and this README) are under the MIT license. See [LICENSE](LICENSE).
+This project's own files (`index.html`, `py/worker.js`, `tools/unpack_stdlib.py` and this README) are under the MIT license. See [LICENSE](LICENSE).
 
 Everything else under `py/` comes from Pyodide and CPython and keeps its original license. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
