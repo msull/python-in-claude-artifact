@@ -1,6 +1,6 @@
 # Third-party notices
 
-This repository redistributes parts of Pyodide and CPython. They are not covered by any license applied to the probe's own files (`index.html`, `py/worker.js`, `tools/`).
+This repository redistributes parts of Pyodide and CPython. They are not covered by the MIT license in `LICENSE`, which applies only to the probe's own files (`index.html`, `py/worker.js`, `tools/` and the README).
 
 ## Pyodide 0.26.4
 

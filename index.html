@@ -67,6 +67,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .gate button { align-self: flex-start; }
+.gated { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 14px; border-top: 1px solid var(--line); }
 
 .steps { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
 .step { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 4px 14px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--line); }
@@ -97,7 +98,7 @@ textarea:disabled { opacity: 0.6; }
 <div class="page">
   <header>
     <h1>Python Gate Probe</h1>
-    <p class="lede">Two tests on one page. Can a local Switchboard server decide what this page lets you do? And does a Python interpreter, published alongside the page as WebAssembly, run inside the artifact frame?</p>
+    <p class="lede">Two tests on one page. Can a local Switchboard server decide whether a button on this page works? And does a Python interpreter, published alongside the page as WebAssembly, run inside the artifact frame?</p>
   </header>
 
   <section class="gate" id="gate" data-tone="wait" aria-live="polite">
@@ -108,6 +109,10 @@ textarea:disabled { opacity: 0.6; }
     <p id="gateText">Looking for the Switchboard server.</p>
     <ul class="hosts" id="gateHosts" hidden></ul>
     <button id="gateBtn" type="button" hidden>Check Switchboard</button>
+    <div class="gated">
+      <button id="gatedBtn" type="button" class="primary" disabled>Gated button</button>
+      <span class="meta" id="gatedNote">Disabled until Switchboard answers.</span>
+    </div>
   </section>
 
   <section>
@@ -115,7 +120,7 @@ textarea:disabled { opacity: 0.6; }
       <h2>Runtime checks</h2>
       <button id="copyBtn" type="button">Copy report</button>
     </div>
-    <p class="note">These run for every viewer, whatever the gate says, so the probe always gives an answer.</p>
+    <p class="note">These run on load for every viewer. Python does not depend on the gate.</p>
     <ol class="steps" id="steps"></ol>
     <pre class="report" id="reportText" hidden></pre>
   </section>
@@ -123,9 +128,9 @@ textarea:disabled { opacity: 0.6; }
   <section>
     <div class="sec-head">
       <h2>Run Python</h2>
-      <span class="lock" id="lockNote">Locked until Switchboard answers</span>
+      <span class="lock" id="lockNote">Waiting for the interpreter</span>
     </div>
-    <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Python script" disabled>import sys, platform, statistics
+    <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Python script">import sys, platform, statistics
 
 samples = [12.1, 11.8, 12.6, 12.0, 11.9]
 print(f"Python {sys.version.split()[0]} on {platform.machine()}")
@@ -270,18 +275,28 @@ sum(i * i for i in range(10))</textarea>
   }
 
   /* ---------- runner ---------- */
-  function canRun() { return gate.state === "open" && runtime.state === "ready" && running === null; }
+  function canRun() { return runtime.state === "ready" && running === null; }
 
   function updateRunner() {
-    var open = gate.state === "open";
     var note = $("lockNote");
-    if (!open) note.textContent = gate.state === "checking" ? "Checking the gate" : "Locked until Switchboard answers";
-    else if (runtime.state === "booting") note.textContent = "Waiting for the interpreter";
+    if (runtime.state === "booting") note.textContent = "Waiting for the interpreter";
     else if (runtime.state === "failed") note.textContent = "The interpreter did not start";
-    note.hidden = open && runtime.state === "ready";
-    $("code").disabled = !open;
+    note.hidden = runtime.state === "ready";
     $("runBtn").disabled = !canRun();
     $("stopBtn").hidden = running === null;
+  }
+
+  /* The gate controls only this button, which does nothing beyond counting its clicks. */
+  var gatedClicks = 0;
+  function updateGated() {
+    var open = gate.state === "open";
+    $("gatedBtn").disabled = !open;
+    $("gatedNote").textContent = open ? "Enabled because Switchboard answered. It does nothing else." : "Disabled until Switchboard answers.";
+  }
+  function onGatedClick() {
+    if (gate.state !== "open") return;
+    gatedClicks += 1;
+    $("gatedNote").textContent = "Clicked " + gatedClicks + (gatedClicks === 1 ? " time" : " times") + ". It does nothing else.";
   }
 
   function appendOut(text) {
@@ -347,7 +362,7 @@ sum(i * i for i in range(10))</textarea>
     var text = c.text;
     if (state === "open") {
       var n = gate.hosts ? gate.hosts.length : 0;
-      text = "Switchboard answered with " + n + " paired " + (n === 1 ? "host" : "hosts") + ". Python is unlocked below.";
+      text = "Switchboard answered with " + n + " paired " + (n === 1 ? "host" : "hosts") + ". The gated button is enabled.";
     } else if (state === "error" && gate.detail) {
       text = c.text + " (" + gate.detail + ")";
     }
@@ -365,7 +380,7 @@ sum(i * i for i in range(10))</textarea>
     btn.textContent = c.btn;
     btn.hidden = !c.btn;
     btn.disabled = false;
-    updateRunner();
+    updateGated();
     saveReport();
   }
 
@@ -468,6 +483,7 @@ sum(i * i for i in range(10))</textarea>
   $("runBtn").addEventListener("click", runCode);
   $("stopBtn").addEventListener("click", stopRun);
   $("gateBtn").addEventListener("click", onGateButton);
+  $("gatedBtn").addEventListener("click", onGatedClick);
   $("copyBtn").addEventListener("click", copyReport);
   $("code").addEventListener("keydown", function (e) {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); runCode(); }
